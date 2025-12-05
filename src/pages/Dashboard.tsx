@@ -35,6 +35,23 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: "http://localhost:5000/api",
+});
+
+// Add request interceptor to attach token to all requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("adminToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
 // Type defs
 interface Category {
   _id: string;
@@ -57,11 +74,17 @@ interface Order {
   user: any;
   createdAt: string;
 }
+interface Ingredient {
+  _id: string;
+  name: string;
+  price: number;
+  picture?: string;
+}
 
 const orangeTheme = createTheme({
   palette: {
     primary: {
-      main: "#FF6D00", // Orange accent color
+      main: "#FF6D00",
     },
     secondary: {
       main: "#FFAB40",
@@ -98,28 +121,19 @@ const orangeTheme = createTheme({
 });
 
 const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
-  // Get API base URL from environment variable
-  const API_BASE_URL =
-    process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
-
-  // Tab state: 0 = Overview, 1 = Categories, 2 = Menu Items
   const [tabIndex, setTabIndex] = useState(0);
   const [openIngredient, setOpenIngredient] = useState(false);
-  const [currentIngredient, setCurrentIngredient] = useState<Partial<{
-    _id: string;
-    name: string;
-    price: number;
-    picture?: string;
-  }> | null>(null);
+  const [currentIngredient, setCurrentIngredient] =
+    useState<Partial<Ingredient> | null>(null);
   const [imageIngredientFile, setImageIngredientFile] = useState<File | null>(
     null,
   );
-  // State for data
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuEntry[]>([]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
-  // Modal/dialog state
   const [openCategory, setOpenCategory] = useState(false);
   const [openMenuItem, setOpenMenuItem] = useState(false);
   const [currentCategory, setCurrentCategory] =
@@ -127,7 +141,6 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [currentMenuItem, setCurrentMenuItem] =
     useState<Partial<MenuEntry> | null>(null);
 
-  // Confirmation dialogs state
   const [confirmDelete, setConfirmDelete] = useState<{
     open: boolean;
     type: "category" | "menuItem" | "ingredient";
@@ -135,7 +148,6 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     name: string;
   }>({ open: false, type: "category", id: null, name: "" });
 
-  // Snackbar for feedback
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -146,52 +158,65 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     severity: "success",
   });
 
-  // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
 
-  const [ingredients, setIngredients] = useState<
-    {
-      _id: string;
-      name: string;
-      price: number;
-      picture?: string;
-    }[]
-  >([]);
-
+  // Fetch functions using api instance
   const fetchIngredients = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/ingredients`);
+      const res = await api.get("/ingredients");
       setIngredients(res.data);
     } catch (err) {
       console.error(err);
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch ingredients",
+        severity: "error",
+      });
     }
   };
 
-  // Fetch data helpers
   const fetchOrders = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/orders`);
+      const res = await api.get("/orders");
       setOrders(res.data);
     } catch (err) {
       console.error(err);
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch orders",
+        severity: "error",
+      });
     }
   };
+
   const fetchCategories = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/categories`);
+      const res = await api.get("/categories");
       setCategories(res.data);
     } catch (err) {
       console.error(err);
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch categories",
+        severity: "error",
+      });
     }
   };
+
   const fetchMenuItems = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/menu-items`);
+      const res = await api.get("/menu-items");
       setMenuItems(res.data);
     } catch (err) {
       console.error(err);
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch menu items",
+        severity: "error",
+      });
     }
   };
+
   useEffect(() => {
     fetchOrders();
     fetchCategories();
@@ -215,15 +240,11 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
       }
 
       if (currentIngredient?._id) {
-        await axios.post(
-          `${API_BASE_URL}/api/ingredients/${currentIngredient._id}`,
-          formData,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
-        );
+        await api.post(`/ingredients/${currentIngredient._id}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        await axios.post(`${API_BASE_URL}/api/ingredients`, formData, {
+        await api.post("/ingredients", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
@@ -248,7 +269,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const handleIngredientDelete = async (id: string) => {
     try {
-      await axios.delete(`${API_BASE_URL}/api/ingredients/${id}`);
+      await api.delete(`/ingredients/${id}`);
       fetchIngredients();
       setSnackbar({
         open: true,
@@ -281,12 +302,9 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const handleCategorySave = async () => {
     try {
       if (currentCategory?._id) {
-        await axios.put(
-          `${API_BASE_URL}/api/categories/${currentCategory._id}`,
-          currentCategory,
-        );
+        await api.put(`/categories/${currentCategory._id}`, currentCategory);
       } else {
-        await axios.post(`${API_BASE_URL}/api/categories`, currentCategory);
+        await api.post("/categories", currentCategory);
       }
       setOpenCategory(false);
       setCurrentCategory(null);
@@ -308,7 +326,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const handleCategoryDelete = async (id: string) => {
     try {
-      await axios.delete(`${API_BASE_URL}/api/categories/${id}`);
+      await api.delete(`/categories/${id}`);
       fetchCategories();
       setSnackbar({
         open: true,
@@ -332,7 +350,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
       formData.append("name", currentMenuItem?.name || "");
       formData.append("description", currentMenuItem?.description || "");
       formData.append("price", (currentMenuItem?.price ?? 0).toString());
-      // Handle category id extraction
+
       const categoryId =
         typeof currentMenuItem?.category === "object"
           ? (currentMenuItem.category as Category)._id
@@ -344,15 +362,11 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
       }
 
       if (currentMenuItem?._id) {
-        await axios.put(
-          `${API_BASE_URL}/api/menu-items/${currentMenuItem._id}`,
-          formData,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
-        );
+        await api.put(`/menu-items/${currentMenuItem._id}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        await axios.post(`${API_BASE_URL}/api/menu-items`, formData, {
+        await api.post("/menu-items", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
@@ -377,7 +391,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const handleMenuItemDelete = async (id: string) => {
     try {
-      await axios.delete(`${API_BASE_URL}/api/menu-items/${id}`);
+      await api.delete(`/menu-items/${id}`);
       fetchMenuItems();
       setSnackbar({
         open: true,
@@ -394,7 +408,6 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
-  // Image file handling
   const handleMenuItemImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
@@ -410,7 +423,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     newStatus: string,
   ) => {
     try {
-      await axios.put(`${API_BASE_URL}/api/orders/${orderId}`, {
+      await api.put(`/orders/${orderId}`, {
         status: newStatus,
       });
       fetchOrders();
@@ -429,7 +442,6 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
-  // Helper for category select value
   const getCategorySelectValue = () => {
     if (
       typeof currentMenuItem?.category === "object" &&
@@ -443,12 +455,10 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     return "";
   };
 
-  // Tab change handler
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue);
   };
 
-  // Open confirm delete dialog
   const openConfirmDeleteDialog = (
     type: "category" | "menuItem" | "ingredient",
     id: string,
@@ -457,7 +467,6 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     setConfirmDelete({ open: true, type, id, name });
   };
 
-  // Confirm delete button clicked
   const onConfirmDelete = async () => {
     if (confirmDelete.id) {
       if (confirmDelete.type === "category") {
@@ -475,7 +484,8 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     setConfirmDelete({ ...confirmDelete, open: false, id: null, name: "" });
 
   const handleLogoutClick = () => {
-    onLogout(); // updates App.tsx state
+    localStorage.removeItem("token");
+    onLogout();
   };
 
   return (
