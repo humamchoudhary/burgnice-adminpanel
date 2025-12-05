@@ -55,7 +55,7 @@ const Signup = ({ onSignup }: { onSignup: () => void }) => {
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/register`,
+        `${API_BASE_URL}/api/auth/register`,
         { name, email, password, role: "admin" },
         { headers: { "Content-Type": "application/json" } },
       );
