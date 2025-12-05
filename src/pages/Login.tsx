@@ -45,13 +45,16 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  const API_BASE_URL =
+    process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
       const res = await axios.post(
-        "http://localhost:5000/api/auth/login",
+        `${API_BASE_URL}/api/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } },
       );
@@ -69,54 +72,59 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
 
   return (
     <ThemeProvider theme={orangeTheme}>
-      <Container maxWidth="xs">
-        <Box>
+      <Container maxWidth="sm">
+        <Box
+          sx={{
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
           <Typography
-            variant="h4"
             component="h1"
-            align="center"
-            gutterBottom
-            sx={{ fontWeight: "bold", color: "primary.main", marginBottom: 3 }}
+            variant="h4"
+            sx={{ fontWeight: 600, mb: 4 }}
           >
             Admin Login
           </Typography>
-          <form onSubmit={handleLogin}>
+
+          <Box component="form" onSubmit={handleLogin} sx={{ width: "100%" }}>
             <TextField
-              label="Email"
-              type="email"
-              variant="outlined"
-              fullWidth
               margin="normal"
               required
+              fullWidth
+              label="Email Address"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
             />
             <TextField
-              label="Password"
-              type="password"
-              variant="outlined"
-              fullWidth
               margin="normal"
               required
+              fullWidth
+              label="Password"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
               </Alert>
             )}
+
             <Button
               type="submit"
-              variant="contained"
-              color="primary"
               fullWidth
-              sx={{ mt: 4 }}
+              variant="contained"
+              sx={{ mt: 3, mb: 2, py: 1.5 }}
             >
               Login
             </Button>
-          </form>
+          </Box>
         </Box>
       </Container>
     </ThemeProvider>

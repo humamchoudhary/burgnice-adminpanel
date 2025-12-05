@@ -55,8 +55,8 @@ const Signup = ({ onSignup }: { onSignup: () => void }) => {
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/auth/register`,
-        { username: name, email, password, role: "admin" },
+        `${API_BASE_URL}/api/register`,
+        { name, email, password, role: "admin" },
         { headers: { "Content-Type": "application/json" } },
       );
 
@@ -92,7 +92,7 @@ const Signup = ({ onSignup }: { onSignup: () => void }) => {
               margin="normal"
               required
               fullWidth
-              label="username"
+              label="Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
