@@ -54,7 +54,7 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
 
     try {
       const res = await axios.post(
-        `${API_BASE_URL}/api/auth/login`,
+        `${API_BASE_URL}/auth/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } },
       );
