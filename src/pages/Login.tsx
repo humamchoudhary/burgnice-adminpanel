@@ -15,7 +15,7 @@ import {
 const orangeTheme = createTheme({
   palette: {
     primary: {
-      main: "#FF6D00",
+      main: "#A63872",
     },
   },
   components: {

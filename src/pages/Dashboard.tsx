@@ -87,10 +87,10 @@ interface Ingredient {
 const orangeTheme = createTheme({
   palette: {
     primary: {
-      main: "#FF6D00",
+      main: "#A63872",
     },
     secondary: {
-      main: "#FFAB40",
+      main: "#667388",
     },
   },
   components: {
