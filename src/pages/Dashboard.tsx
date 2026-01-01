@@ -30,6 +30,8 @@ import {
   Alert,
   createTheme,
   ThemeProvider,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -60,16 +62,19 @@ interface Category {
   _id: string;
   name: string;
   description: string;
+  promotion: boolean;
 }
+
 interface MenuEntry {
   _id: string;
   name: string;
   description: string;
   price: number;
   image?: string;
-  category: Category | string;
+  categories: Category[] | string[]; // Changed from category to categories (array)
   isAvailable?: boolean;
 }
+
 interface Order {
   _id: string;
   status: string;
@@ -208,7 +213,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const fetchMenuItems = async () => {
     try {
-      const res = await api.get("/menu-items");
+      const res = await api.get("/menu-items"); // This should now return categories array
       setMenuItems(res.data);
     } catch (err) {
       console.error(err);
@@ -354,11 +359,21 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
       formData.append("description", currentMenuItem?.description || "");
       formData.append("price", (currentMenuItem?.price ?? 0).toString());
 
-      const categoryId =
-        typeof currentMenuItem?.category === "object"
-          ? (currentMenuItem.category as Category)._id
-          : currentMenuItem?.category || "";
-      formData.append("category", categoryId);
+      // Handle categories - ensure it's an array
+      const categories =
+        Array.isArray(currentMenuItem?.categories) && currentMenuItem
+          ? currentMenuItem.categories
+          : [];
+
+      // If categories are objects, extract IDs
+      const categoryIds = categories.map((cat) =>
+        typeof cat === "object" ? (cat as Category)._id : cat,
+      );
+
+      // Append each category ID
+      categoryIds.forEach((id, index) => {
+        formData.append(`categories[${index}]`, id);
+      });
 
       if (imageFile) {
         formData.append("image", imageFile);
@@ -373,6 +388,8 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
+
+      // Rest of the function remains the same...
       setOpenMenuItem(false);
       setCurrentMenuItem(null);
       setImageFile(null);
@@ -445,17 +462,25 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
-  const getCategorySelectValue = () => {
-    if (
-      typeof currentMenuItem?.category === "object" &&
-      currentMenuItem?.category !== null
-    ) {
-      return (currentMenuItem.category as Category)._id;
+  const getCategorySelectValue = (): string[] => {
+    if (!currentMenuItem?.categories) return [];
+
+    if (Array.isArray(currentMenuItem.categories)) {
+      // If it's an array of Category objects, extract IDs
+      if (
+        currentMenuItem.categories.length > 0 &&
+        typeof currentMenuItem.categories[0] === "object"
+      ) {
+        return (currentMenuItem.categories as Category[]).map((cat) => cat._id);
+      }
+      // If it's already an array of strings, return as-is
+      return currentMenuItem.categories as string[];
     }
-    if (typeof currentMenuItem?.category === "string") {
-      return currentMenuItem.category;
-    }
-    return "";
+
+    // If it's a string (shouldn't happen with new schema), convert to array
+    return typeof currentMenuItem.categories === "string"
+      ? [currentMenuItem.categories]
+      : [];
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -685,6 +710,20 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                     })
                   }
                 />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={currentCategory?.promotion || false}
+                      onChange={(e) =>
+                        setCurrentCategory({
+                          ...currentCategory,
+                          promotion: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label="Show in Promotion Grid"
+                />
               </DialogContent>
               <DialogActions sx={{ pr: 3, pb: 2 }}>
                 <Button onClick={() => setOpenCategory(false)}>Cancel</Button>
@@ -696,6 +735,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
           </Box>
         )}
 
+        {/* Menu Items Tab */}
         {/* Menu Items Tab */}
         {tabIndex === 2 && (
           <Box>
@@ -713,7 +753,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                 color="primary"
                 onClick={() => {
                   setOpenMenuItem(true);
-                  setCurrentMenuItem({});
+                  setCurrentMenuItem({ categories: [] });
                 }}
               >
                 Add Menu Item
@@ -733,7 +773,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                 >
                   <TableRow>
                     <TableCell>Name</TableCell>
-                    <TableCell>Category</TableCell>
+                    <TableCell>Categories</TableCell>
                     <TableCell>Price</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -743,10 +783,15 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <TableRow key={item._id} hover>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>
-                        {typeof item.category === "object" &&
-                        item.category !== null
-                          ? (item.category as Category).name
-                          : item.category}
+                        {Array.isArray(item.categories)
+                          ? item.categories
+                              .map((cat) =>
+                                typeof cat === "object" && cat !== null
+                                  ? cat.name
+                                  : String(cat),
+                              )
+                              .join(", ")
+                          : String(item.categories || "")}
                       </TableCell>
                       <TableCell>${item.price.toFixed(2)}</TableCell>
                       <TableCell align="right">
@@ -844,16 +889,25 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                   required
                 />
                 <FormControl fullWidth margin="normal" size="medium" required>
-                  <InputLabel>Category</InputLabel>
+                  <InputLabel>Categories</InputLabel>
                   <Select
+                    multiple
                     value={getCategorySelectValue()}
-                    label="Category"
-                    onChange={(e) =>
+                    label="Categories"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Ensure we always get an array
+                      const categoriesArray = Array.isArray(value)
+                        ? value
+                        : typeof value === "string"
+                          ? value.split(",")
+                          : [];
+
                       setCurrentMenuItem({
                         ...currentMenuItem,
-                        category: e.target.value,
-                      })
-                    }
+                        categories: categoriesArray,
+                      });
+                    }}
                   >
                     {categories.map((cat) => (
                       <MUISelectItem key={cat._id} value={cat._id}>
